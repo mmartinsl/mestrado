@@ -11,13 +11,16 @@
   - Arduino Nano 33 BLE or Arduino Nano 33 BLE Sense board.
 
   Created by Don Coleman, Sandeep Mistry
-  Modified by Dominic Pajak, Sandeep Mistry
+  Modified by Dominic Pajak, Sandeep Mistry, Marcelo Martins da Silva
 
   This example code is in the public domain.
 */
 
 #include <Arduino_LSM9DS1.h>
+#include <SPI.h>
+#include <SD.h>
 
+const int chipSelect = 4;
 const float accelerationThreshold = 1.61; // threshold of significant in G's
 const int numSamples = 500;
 
@@ -25,8 +28,20 @@ int samplesRead = numSamples;
 String sample = "";
 
 void setup() {
+  // Open serial communications and wait for port to open:
   Serial.begin(9600);
   while (!Serial);
+
+  Serial.print("Initializing SD card...");
+
+  // see if the card is present and can be initialized:
+  if (!SD.begin(chipSelect)) {
+    Serial.println("Card failed, or not present");
+    // don't do anything more:
+    while (1);
+  }
+  Serial.println("card initialized.");
+}
 
   if (!IMU.begin()) {
     Serial.println("Failed to initialize IMU!");
@@ -38,7 +53,16 @@ void setup() {
 }
 
 void loop() {
+  // make a string for assembling the data to log:
+  String dataString = "";
+  
   float aX, aY, aZ, gX, gY, gZ;
+
+
+
+// open the file. note that only one file can be open at a time,
+  // so you have to close this one before opening another.
+  File dataFile = SD.open("datalog.txt", FILE_WRITE);
 
   // wait for significant motion
   while (samplesRead == numSamples) {
@@ -73,7 +97,16 @@ void loop() {
       // print the data in CSV format
       sample = String(aX, 3) + "," + String(aY, 3) + "," + String(aZ, 3) + "," + String(gX, 3) + "," + String(gY, 3) + "," + String(gZ, 3);
       Serial.println(sample);
-
+      dataString += String(sample);   
+    
+     if (dataFile) {
+     dataFile.println(dataString);
+     dataFile.close();
+  }
+  // if the file isn't open, pop up an error:
+  else {
+    Serial.println("error opening datalog.txt");
+  }
       if (samplesRead == numSamples) {
         // add an empty line if it's the last sample
         Serial.println();
@@ -81,4 +114,3 @@ void loop() {
     }
   }
 }
- 
